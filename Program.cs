@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace GW2DownloadJsonData
 {
+    /// <summary>
+    /// Uses the JsonMethods namespace that you can find at "https://github.com/andreastmedia/Json_Processing".
+    /// </summary>
     class Program
     {
         static async Task Main(string[] args)
