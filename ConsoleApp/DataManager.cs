@@ -1,94 +1,76 @@
 ﻿using JsonMethods;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace GW2DownloadJsonData
+namespace GW2DownloadJsonData.ConsoleApp
 {
-    /// <summary>
-    /// Uses the JsonMethods namespace that you can find at "https://github.com/andreastmedia/Json_Processing".
-    /// </summary>
-    class Program
+    public class DataManager
     {
-        static async Task Main(string[] args)
+        private readonly ILogger _logger;
+
+        public DataManager(ILogger<DataManager> logger)
         {
-            HttpClient httpClient = new HttpClient();
-            DirectoryInfo directory = Directory.CreateDirectory(@"C:\Temp");
-
-            JArray jArrayIDs = await DownloadItemIDs(httpClient);
-
-            if (jArrayIDs != null)
-            {
-                Console.WriteLine(@"Got IDs. Saved JSON at " + directory);
-            }
-
-            JArray jArrayNames = await DownloadItemNames(httpClient, jArrayIDs);
-
-            if (jArrayNames != null)
-            {
-                Console.WriteLine(@"Got Names.Saved JSON at " + directory);
-            }
-
-            CreateItemDictionary(jArrayIDs, jArrayNames);
-
-            Console.WriteLine(@"Created Dictionary. Saved at " + directory);
+            _logger = logger;
         }
 
-        private static async Task<JArray> DownloadItemIDs(HttpClient httpClient)
+        public async Task<JArray> DownloadItemIDs(HttpClient httpClient)
         {
             object jsonItemIDs = null;
             do
             {
                 try
                 {
-                    jsonItemIDs = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, "https://api.guildwars2.com/v2/items");
+                    jsonItemIDs = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, httpClient.BaseAddress.ToString());
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Exception: " + ex);
+                    _logger.LogError("Exception: " + ex);
+                    await Task.Delay(1500);
                     jsonItemIDs = null;
                 }
             } while (jsonItemIDs == null);
-            
+
             JArray jArrayIDs = JArray.Parse(jsonItemIDs.ToString());
-            
+
             JsonFileProcessor.SaveJsonToFolder(@"C:\Temp", "GW2_ItemsIDsList.json", jArrayIDs.ToString());
 
             return jArrayIDs;
         }
 
-        private static async Task<JArray> DownloadItemNames(HttpClient httpClient, JArray jArrayIDs)
+        public async Task<JArray> DownloadItemNames(HttpClient httpClient, JArray jArrayIDs)
         {
             List<string> names = new List<string>();
 
             for (int i = 0; i < jArrayIDs.Count; i++)
             {
-                object jsonItem = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, "https://api.guildwars2.com/v2/items", jArrayIDs[i].ToString());
+                object jsonItem = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, httpClient.BaseAddress.ToString(), jArrayIDs[i].ToString());
                 if (jsonItem == null)
                 {
                     i--;
+                    await Task.Delay(1500);
                     continue;
                 }
                 JObject jObject = JObject.Parse(jsonItem.ToString());
                 string jsonItemName = JsonFileProcessor.FindJProperty(jObject, "name");
                 names.Add(jsonItemName);
 
-                Console.WriteLine(i + " from " + jArrayIDs.Count);
+                _logger.LogInformation(i + " from " + jArrayIDs.Count);
             }
 
             string jsonStringNames = JsonConvert.SerializeObject(names);
             JArray jArrayNames = JsonConvert.DeserializeObject<JArray>(jsonStringNames);
-            
+
             JsonFileProcessor.SaveJsonToFolder(@"C:\Temp", "GW2_ItemsNamesList.json", jArrayNames.ToString());
 
             return jArrayNames;
         }
 
-        private static void CreateItemDictionary(JArray jArrayIDs, JArray jArrayNames)
+        public void CreateItemDictionary(JArray jArrayIDs, JArray jArrayNames)
         {
             Dictionary<string, List<int>> itemsDictionary = JsonFileProcessor.CombineJArraysToDictionaryOfLists(jArrayNames, jArrayIDs);
             JObject jObjectDict = JObject.Parse(JsonConvert.SerializeObject(itemsDictionary));
