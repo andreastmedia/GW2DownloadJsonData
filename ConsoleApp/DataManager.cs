@@ -20,7 +20,7 @@ namespace GW2DownloadJsonData.ConsoleApp
 
         public async Task<JArray> DownloadItemIDs(HttpClient httpClient)
         {
-            object jsonItemIDs = null;
+            string jsonItemIDs = null;
             do
             {
                 try
@@ -35,7 +35,7 @@ namespace GW2DownloadJsonData.ConsoleApp
                 }
             } while (jsonItemIDs == null);
 
-            JArray jArrayIDs = JArray.Parse(jsonItemIDs.ToString());
+            JArray jArrayIDs = JArray.Parse(jsonItemIDs);
 
             JsonFileProcessor.SaveJsonToFolder(@"C:\Temp", "GW2_ItemsIDsList.json", jArrayIDs.ToString());
 
@@ -48,14 +48,14 @@ namespace GW2DownloadJsonData.ConsoleApp
 
             for (int i = 0; i < jArrayIDs.Count; i++)
             {
-                object jsonItem = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, httpClient.BaseAddress.ToString(), jArrayIDs[i].ToString());
+                string jsonItem = await JsonWebProcessor.DownloadJsonFromWeb(httpClient, httpClient.BaseAddress.ToString(), jArrayIDs[i].ToString());
                 if (jsonItem == null)
                 {
                     i--;
                     await Task.Delay(1500);
                     continue;
                 }
-                JObject jObject = JObject.Parse(jsonItem.ToString());
+                JObject jObject = JObject.Parse(jsonItem);
                 string jsonItemName = JsonFileProcessor.FindJProperty(jObject, "name");
                 names.Add(jsonItemName);
 
