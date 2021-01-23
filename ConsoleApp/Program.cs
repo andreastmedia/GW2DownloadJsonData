@@ -8,31 +8,32 @@ using System.Threading.Tasks;
 
 namespace GW2DownloadJsonData.ConsoleApp
 {
-    /// <summary>
-    /// Uses the JsonMethods namespace that you can find at "https://github.com/andreastmedia/Json_Processing".
-    /// </summary>
     class Program
     {
         /// <summary>
-        /// The Main method of the console application.
+        /// We are using the Dependency Injection pattern.<br/>
+        /// The <see cref="Program.Main(string[])"/>:
+        /// <list type="bullet">
+        /// <item>Builds the host with pre-configured defaults by calling <see cref="Host.CreateDefaultBuilder"/>.</item>
+        /// <item>Calls <see cref="IHostBuilder.ConfigureAppConfiguration"/> to load configurations from appsettings.json files and environment variables.</item>
+        /// <item>Calls <see cref="HostingHostBuilderExtensions.ConfigureLogging"/> to setup logging to console and debug window.</item>
+        /// <item>Calls <see cref="IHostBuilder.ConfigureServices"/> to add services to the container.</item>
+        /// </list>
         /// </summary>
-        /// <remarks>
-        /// Added Dependency Injection in order to use the <see cref= "System.Net.Http.IHttpClientFactory" />.<br/>
-        /// Also added Logging and Settings (appsettings.json).
-        /// </remarks>
         static async Task Main(string[] args)
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddEnvironmentVariables()
-                .Build();
-            
             var host = Host.CreateDefaultBuilder()
-                .ConfigureLogging((logging) =>
+                .ConfigureAppConfiguration((hostBuilderContext, configuration) =>
+                { 
+                    configuration.SetBasePath(Directory.GetCurrentDirectory())
+                                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                                 .AddEnvironmentVariables()
+                                 .Build();
+                })
+                .ConfigureLogging((hostBuilderContext, logging) =>
                 {
                     logging.ClearProviders();
-                    logging.AddConfiguration(configuration);
+                    logging.AddConfiguration(hostBuilderContext.Configuration.GetSection("Logging"));
                     logging.AddDebug();
                     logging.AddConsole();
                 })
@@ -44,21 +45,21 @@ namespace GW2DownloadJsonData.ConsoleApp
                         client.Timeout = new TimeSpan(0, 0, 2);
                     });
                     
-                    services.AddSingleton<NamesDownloader>();
-                    services.AddTransient<DataManager>();
+                    services.AddSingleton<DataDownloader>();
+                    services.AddTransient<DataDownloaderFunctions>();
                 })
                 .Build();
 
             ILogger logger = host.Services.GetService<ILogger<Program>>();
 
-            var svc = ActivatorUtilities.CreateInstance<NamesDownloader>(host.Services);
+            var svc = ActivatorUtilities.CreateInstance<DataDownloader>(host.Services);
             try
             {
                 await svc.Run();
             }
             catch (Exception ex)
             {
-                logger.LogError("Error: " + ex);
+                logger.LogError($"Error: {ex}");
             }
         }
     }
